@@ -9,13 +9,14 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
 :root{
-  --bg:#fdf8f5;--paper:#ffffff;--paper2:#faf5f0;--paper3:#f0e8e0;
-  --ink:#1a1210;--ink3:#8a7a6e;--ink4:#c4b4a8;
-  --blue:#4a6fa5;--blue-lt:#d0ddf0;--blue-pale:#eef2fb;
-  --pink:#e05575;--pink-lt:#f8d0da;--pink-pale:#fdf0f3;
-  --red:#c0392b;--border:rgba(26,22,18,0.09);--border2:rgba(26,22,18,0.16);
+  --bg:#f5f5f5;--paper:#ffffff;--paper2:#f0f0f0;--paper3:#e5e5e5;
+  --ink:#111111;--ink3:#666666;--ink4:#aaaaaa;
+  --blue:#222222;--blue-lt:#dddddd;--blue-pale:#f0f0f0;
+  --pink:#111111;--pink-lt:#dddddd;--pink-pale:#f0f0f0;
+  --red:#222222;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);
   --font-head:'Libre Baskerville',serif;--font-mono:'DM Mono',monospace;--font-body:'Space Grotesk',sans-serif;
-  --card-r:12px;--card-shadow:0 2px 16px rgba(200,160,140,0.13);
+  --card-r:12px;--card-shadow:0 2px 16px rgba(0,0,0,0.07);
+  --accent:#111111;--accent2:#444444;--accent-pale:#f0f0f0;--accent-lt:#dddddd;
 }
 :root.dark{
   --bg:#0d0d0d;--paper:#141414;--paper2:#1a1a1a;--paper3:#222;
@@ -25,6 +26,7 @@
   --red:#f07070;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
   --font-head:'Libre Baskerville',serif;--font-mono:'DM Mono',monospace;--font-body:'Space Grotesk',sans-serif;
   --card-r:16px;--card-shadow:0 2px 20px rgba(0,0,0,0.4);
+  --accent:#f0f0f0;--accent2:#cccccc;--accent-pale:rgba(255,255,255,0.07);--accent-lt:rgba(255,255,255,0.15);
 }
 
 html{scroll-behavior:smooth}
@@ -32,10 +34,11 @@ body{font-family:var(--font-body);background:var(--bg);color:var(--ink);min-heig
 
 .hk-bg{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0.045;background-repeat:repeat;background-size:72px 72px;transition:opacity 0.35s;}
 :root.dark .hk-bg{opacity:0.06;}
-.hk-img-light{display:inline-block}
+/* HK images: hidden by default, shown only in hellokitty theme */
+.hk-img-light{display:none!important}
 .hk-img-dark{display:none!important}
-:root.dark .hk-img-light{display:none!important}
-:root.dark .hk-img-dark{display:inline-block!important}
+:root.hellokitty-theme .hk-img-light{display:inline-block!important}
+:root.hellokitty-theme .hk-img-dark{display:none!important}
 .tb-hk{display:flex;align-items:center;}
 
 .toolbar{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:10px 24px;border-bottom:1px solid var(--border);background:var(--paper);transition:background 0.35s,border-color 0.35s;}
@@ -59,7 +62,7 @@ body{font-family:var(--font-body);background:var(--bg);color:var(--ink);min-heig
 .stats-bar{position:relative;z-index:1;background:var(--paper2);border-bottom:1px solid var(--border2);display:flex;justify-content:center;align-items:center;padding:14px 24px;transition:background 0.35s;}
 .stat-pill{display:inline-flex;align-items:center;gap:8px;background:var(--paper);border:1px solid var(--border2);border-radius:99px;padding:8px 20px;box-shadow:var(--card-shadow);}
 .stat-pill img{width:20px;height:20px;object-fit:contain;}
-.stat-n{font-family:var(--font-head);font-size:22px;font-weight:700;color:#e05575;line-height:1;}
+.stat-n{font-family:var(--font-head);font-size:22px;font-weight:700;color:var(--accent);line-height:1;}
 .stat-l{font-family:var(--font-mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);}
 
 main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24px 80px;}
@@ -90,12 +93,12 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24p
 @keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .item.done{opacity:0.42;} .item.done .item-text{text-decoration:line-through;color:var(--ink3);}
 .check{width:16px;height:16px;border:1.5px solid var(--ink4);border-radius:50%;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.18s;background:transparent;}
-.item.done .check{background:#e05575;border-color:#e05575;}
+.item.done .check{background:var(--accent);border-color:var(--accent);}
 .check-x{font-size:8px;color:white;display:none;font-weight:700;} .item.done .check-x{display:block;}
 .item-text{flex:1;font-size:13.5px;color:var(--ink);line-height:1.4;word-break:break-word;transition:color 0.3s;}
 .chip{font-family:var(--font-mono);font-size:9px;letter-spacing:0.8px;text-transform:uppercase;padding:2px 8px;border-radius:99px;flex-shrink:0;}
-.chip-m{background:var(--blue-pale);color:#4a6fa5;border:1px solid var(--blue-lt);}
-.chip-p{background:var(--pink-pale);color:#e05575;border:1px solid var(--pink-lt);}
+.chip-m{background:var(--accent-pale);color:var(--accent2);border:1px solid var(--accent-lt);}
+.chip-p{background:var(--accent-pale);color:var(--accent);border:1px solid var(--accent-lt);}
 .del-btn{background:none;border:none;color:var(--ink4);font-size:15px;cursor:pointer;padding:0;line-height:1;opacity:0;transition:opacity 0.15s,color 0.15s;}
 .item:hover .del-btn{opacity:1;} .del-btn:hover{color:var(--red);}
 .empty{font-family:var(--font-head);font-style:italic;font-size:13px;color:var(--ink4);padding:18px 4px;text-align:center;}
@@ -103,25 +106,25 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24p
 .prog-wrap{padding:0 22px 16px;}
 .prog-nums{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:9px;color:var(--ink4);margin-bottom:5px;letter-spacing:0.5px;}
 .prog-track{height:3px;background:var(--paper3);border-radius:99px;overflow:hidden;transition:background 0.3s;}
-.prog-fill{height:100%;border-radius:99px;background:#e05575;transition:width 0.5s ease;}
+.prog-fill{height:100%;border-radius:99px;background:var(--accent);transition:width 0.5s ease;}
 
 .add-area{padding:14px 22px 20px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px;transition:border-color 0.35s;}
 .who-row{display:flex;gap:7px;}
 .who-btn{flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-family:var(--font-mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;color:var(--ink3);transition:all 0.15s;}
-.who-btn.sel-m{background:var(--blue-pale);border-color:var(--blue-lt);color:#4a6fa5;}
-.who-btn.sel-p{background:var(--pink-pale);border-color:var(--pink-lt);color:#e05575;}
+.who-btn.sel-m{background:var(--accent-pale);border-color:var(--accent-lt);color:var(--accent2);}
+.who-btn.sel-p{background:var(--accent-pale);border-color:var(--accent-lt);color:var(--accent);}
 .input-row{display:flex;gap:8px;}
 .add-input{flex:1;padding:9px 14px;border:1px solid var(--border2);border-radius:9px;background:var(--paper2);font-family:var(--font-body);font-size:13.5px;color:var(--ink);outline:none;transition:border-color 0.2s,box-shadow 0.2s,background 0.35s,color 0.35s;}
 .add-input::placeholder{color:var(--ink4);font-style:italic;}
-.add-input:focus{border-color:#e05575;box-shadow:0 0 0 3px var(--pink-pale);}
-.add-btn{width:38px;height:38px;border-radius:10px;border:none;background:#e05575;color:white;font-size:22px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity 0.15s,transform 0.12s;flex-shrink:0;}
+.add-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-pale);}
+.add-btn{width:38px;height:38px;border-radius:10px;border:none;background:var(--accent);color:white;font-size:22px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity 0.15s,transform 0.12s;flex-shrink:0;}
 .add-btn:hover{opacity:0.85;} .add-btn:active{transform:scale(0.93);}
 
 /* add new list card */
 .add-list-card{background:var(--paper);border:1.5px dashed var(--border2);border-radius:var(--card-r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px 22px;cursor:pointer;transition:border-color 0.2s,background 0.2s;min-height:180px;}
-.add-list-card:hover{border-color:#e05575;background:var(--pink-pale);}
+.add-list-card:hover{border-color:var(--accent);background:var(--accent-pale);}
 .add-list-plus{width:44px;height:44px;border-radius:50%;background:var(--paper2);border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--ink3);transition:all 0.2s;}
-.add-list-card:hover .add-list-plus{background:#e05575;border-color:#e05575;color:white;}
+.add-list-card:hover .add-list-plus{background:var(--accent);border-color:var(--accent);color:white;}
 .add-list-label{font-family:var(--font-mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);}
 
 /* modal */
@@ -131,15 +134,15 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24p
 .modal-title{font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--ink);margin-bottom:20px;}
 .modal-label{font-family:var(--font-mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);margin-bottom:6px;display:block;}
 .modal-input{width:100%;padding:10px 14px;border:1px solid var(--border2);border-radius:9px;background:var(--paper2);font-family:var(--font-body);font-size:14px;color:var(--ink);outline:none;margin-bottom:16px;transition:border-color 0.2s;}
-.modal-input:focus{border-color:#e05575;box-shadow:0 0 0 3px var(--pink-pale);}
+.modal-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-pale);}
 .modal-emoji-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
 .emoji-opt{width:36px;height:36px;border-radius:8px;border:1.5px solid var(--border);background:var(--paper2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all 0.15s;}
-.emoji-opt.sel{border-color:#e05575;background:var(--pink-pale);}
+.emoji-opt.sel{border-color:var(--accent);background:var(--accent-pale);}
 .modal-btns{display:flex;gap:8px;}
 .modal-btn{flex:1;padding:10px;border-radius:9px;border:none;cursor:pointer;font-family:var(--font-mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;transition:all 0.15s;}
 .modal-btn-cancel{background:var(--paper2);color:var(--ink3);}
 .modal-btn-cancel:hover{background:var(--paper3);}
-.modal-btn-ok{background:#e05575;color:white;}
+.modal-btn-ok{background:var(--accent);color:white;}
 .modal-btn-ok:hover{opacity:0.85;}
 
 .footer{position:relative;z-index:1;text-align:center;padding:20px;border-top:1px solid var(--border2);background:var(--paper2);transition:background 0.35s;}
@@ -152,7 +155,7 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24p
 }
 
 .loading-bar{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;background:var(--paper2);border-bottom:1px solid var(--border2);font-family:var(--font-mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);}
-.loading-dot{width:6px;height:6px;border-radius:50%;background:#e05575;animation:ldot 1.2s ease-in-out infinite;}
+.loading-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:ldot 1.2s ease-in-out infinite;}
 .loading-dot:nth-child(2){animation-delay:0.2s;}
 .loading-dot:nth-child(3){animation-delay:0.4s;}
 @keyframes ldot{0%,80%,100%{transform:scale(0);opacity:0.3}40%{transform:scale(1);opacity:1}}
@@ -197,77 +200,17 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24p
   border: none; background: transparent; width: 100%; text-align: left;
 }
 .tb-theme-opt:hover { background: var(--paper2); color: var(--ink); }
-.tb-theme-opt.active { background: var(--pink-pale); color: #e05575; font-weight: 600; }
+.tb-theme-opt.active { background: var(--accent-pale); color: var(--accent); font-weight: 600; }
 .tb-theme-swatch {
   width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
   border: 1.5px solid var(--border2);
 }
-.swatch-light    { background: linear-gradient(135deg, #fdf8f5 50%, #ffffff 50%); border-color: #c4b4a8; }
+.swatch-light    { background: linear-gradient(135deg, #111111 50%, #ffffff 50%); border-color: #aaaaaa; }
 .swatch-dark     { background: linear-gradient(135deg, #141414 50%, #0d0d0d 50%); border-color: #484040; }
 .swatch-hellokitty { background: linear-gradient(135deg, #ff6699 50%, #fff0f5 50%); border-color: #ff6699; }
 .swatch-tvgirl     { background: linear-gradient(135deg, #4a6fa5 50%, #e05575 50%); border-color: #4a6fa5; }
 
-/* ===== TEMA TV GIRL ===== */
-:root.tvgirl {
-  --bg:        #f0ebe3;
-  --paper:     #f7f3ec;
-  --paper2:    #ede8e0;
-  --paper3:    #e4dfd6;
-  --ink:       #1a1612;
-  --ink3:      #8a7a6e;
-  --ink4:      #c4b4a8;
-  --blue:      #4a6fa5;
-  --blue-lt:   #d0ddf0;
-  --blue-pale: #eef2fb;
-  --pink:      #e05575;
-  --pink-lt:   #f8d0da;
-  --pink-pale: #fdf0f3;
-  --red:       #c0392b;
-  --border:    rgba(26,22,18,0.09);
-  --border2:   rgba(26,22,18,0.16);
-  --font-head: 'Libre Baskerville', serif;
-  --font-mono: 'DM Mono', monospace;
-  --font-body: 'Space Grotesk', sans-serif;
-  --card-r:    4px;
-  --card-shadow: 3px 3px 0 #e4dfd6;
-}
 
-/* grain no tema TV Girl */
-:root.tvgirl body::after {
-  content: '';
-  position: fixed; inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-  pointer-events: none; z-index: 998; opacity: 0.5;
-}
-
-/* ruled lines TV Girl */
-:root.tvgirl body::before {
-  content: '';
-  position: fixed; inset: 0;
-  background-image: repeating-linear-gradient(
-    to bottom, transparent, transparent 31px,
-    rgba(26,22,18,0.04) 31px, rgba(26,22,18,0.04) 32px
-  );
-  pointer-events: none; z-index: 0;
-}
-
-/* card offset shadow TV Girl */
-:root.tvgirl .card {
-  box-shadow: 3px 3px 0 var(--paper3);
-  border-radius: 4px;
-}
-:root.tvgirl .card:hover {
-  box-shadow: 5px 5px 0 var(--paper3);
-  transform: translate(-1px, -1px);
-}
-
-/* card-title serif TV Girl */
-:root.tvgirl .card-title { font-family: 'Libre Baskerville', serif; }
-
-/* nomes em azul e rosa TV Girl (já fixos como absolute values, ok) */
-
-/* footer TV Girl com quote */
-:root.tvgirl .footer-quote { display: block; }
 .footer-quote {
   display: none;
   font-family: 'Libre Baskerville', serif;
@@ -277,6 +220,129 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24p
   margin-top: 6px;
   letter-spacing: 0.3px;
 }
+
+/* ===== TEMA TV GIRL ===== */
+:root.tvgirl {
+  --bg:        #1c1a28;
+  --paper:     #242136;
+  --paper2:    #2d2a40;
+  --paper3:    #363350;
+  --ink:       #e8e4f8;
+  --ink3:      #8a85b0;
+  --ink4:      #4a4668;
+  --blue:      #7eb8f7;
+  --blue-lt:   rgba(126,184,247,0.22);
+  --blue-pale: rgba(126,184,247,0.09);
+  --pink:      #f472b6;
+  --pink-lt:   rgba(244,114,182,0.22);
+  --pink-pale: rgba(244,114,182,0.09);
+  --red:       #f87171;
+  --border:    rgba(200,190,255,0.08);
+  --border2:   rgba(200,190,255,0.15);
+  --font-head: 'Libre Baskerville', serif;
+  --font-mono: 'DM Mono', monospace;
+  --font-body: 'Space Grotesk', sans-serif;
+  --card-r:    8px;
+  --card-shadow: 0 0 0 1px rgba(200,190,255,0.1), 0 4px 24px rgba(0,0,0,0.4);
+  --accent:#f472b6;--accent2:#7eb8f7;--accent-pale:rgba(244,114,182,0.09);--accent-lt:rgba(244,114,182,0.22);
+}
+
+/* scan lines no tema TV Girl — efeito CRT */
+:root.tvgirl body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0,0,0,0.08) 2px,
+    rgba(0,0,0,0.08) 4px
+  );
+  pointer-events: none; z-index: 998; opacity: 1;
+}
+
+/* vignette TV Girl */
+:root.tvgirl body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.55) 100%);
+  pointer-events: none; z-index: 0;
+}
+
+/* header glow TV Girl */
+:root.tvgirl .header {
+  background: var(--paper);
+  border-bottom: 1px solid var(--border2);
+  position: relative;
+}
+:root.tvgirl .header::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(126,184,247,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* nomes — azul e rosa bem saturados no TV Girl */
+:root.tvgirl .header-title .blue { color: #7eb8f7; }
+:root.tvgirl .header-title .pink { color: #f472b6; }
+:root.tvgirl .header-title .amp  { color: var(--ink4); }
+
+/* card glow TV Girl */
+:root.tvgirl .card {
+  border: 1px solid var(--border2);
+  box-shadow: 0 0 0 1px rgba(126,184,247,0.06), 0 4px 24px rgba(0,0,0,0.4);
+}
+:root.tvgirl .card:hover {
+  border-color: rgba(126,184,247,0.3);
+  box-shadow: 0 0 16px rgba(126,184,247,0.12), 0 4px 24px rgba(0,0,0,0.5);
+  transform: translateY(-2px);
+}
+
+/* progress fill TV Girl */
+/* TV Girl accent handled by CSS vars */
+
+/* add list card TV Girl */
+:root.tvgirl .add-list-card:hover { border-color: #7eb8f7; background: rgba(126,184,247,0.05); }
+:root.tvgirl .add-list-card:hover .add-list-plus { background: #7eb8f7; border-color: #7eb8f7; color: #1c1a28; }
+
+/* footer quote TV Girl */
+.footer-quote { display: none; }
+:root.tvgirl .footer-quote { display: block; }
+.footer-quote {
+  font-family: 'Libre Baskerville', serif;
+  font-style: italic;
+  font-size: 11px;
+  color: var(--ink4);
+  margin-top: 6px;
+  letter-spacing: 0.3px;
+  text-align: center;
+}
+
+/* stat pill TV Girl */
+:root.tvgirl .stat-pill {
+  border-color: rgba(126,184,247,0.2);
+  box-shadow: 0 0 12px rgba(126,184,247,0.08);
+}
+
+/* toolbar btn active TV Girl */
+:root.tvgirl .tb-btn.active { background: var(--paper3); }
+:root.tvgirl .tb-theme-opt.active { background: rgba(126,184,247,0.1); color: #7eb8f7; }
+
+/* ===== TEMA LIGHT — preto e branco ===== */
+
+/* ===== TEMA HELLO KITTY — cores originais ===== */
+:root.hellokitty-theme {
+  --bg:#fdf8f5;--paper:#ffffff;--paper2:#faf5f0;--paper3:#f0e8e0;
+  --ink:#1a1210;--ink3:#8a7a6e;--ink4:#c4b4a8;
+  --blue:#4a6fa5;--blue-lt:#d0ddf0;--blue-pale:#eef2fb;
+  --pink:#e05575;--pink-lt:#f8d0da;--pink-pale:#fdf0f3;
+  --red:#c0392b;--border:rgba(26,22,18,0.09);--border2:rgba(26,22,18,0.16);
+  --card-r:12px;--card-shadow:0 2px 16px rgba(200,160,140,0.13);
+  --accent:#e05575;--accent2:#4a6fa5;--accent-pale:#fdf0f3;--accent-lt:#f8d0da;
+}
+
+:root.dark .add-btn { color: #0d0d0d; }
+:root.tvgirl .add-btn { color: #1c1a28; }
 </style>
 </head>
 <body>
@@ -302,13 +368,13 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24p
         🎨 Temas <span class="tb-dropdown-arrow">▼</span>
       </button>
       <div class="tb-dropdown-menu" id="themeDropdownMenu">
-        <button class="tb-theme-opt active" data-theme="hellokitty" id="opt-hellokitty">
+        <button class="tb-theme-opt" data-theme="hellokitty" id="opt-hellokitty">
           <span class="tb-theme-swatch swatch-hellokitty"></span>Hello Kitty
         </button>
         <button class="tb-theme-opt" data-theme="tvgirl" id="opt-tvgirl">
           <span class="tb-theme-swatch swatch-tvgirl"></span>TV Girl
         </button>
-        <button class="tb-theme-opt" data-theme="light" id="opt-light">
+        <button class="tb-theme-opt active" data-theme="light" id="opt-light">
           <span class="tb-theme-swatch swatch-light"></span>Claro
         </button>
         <button class="tb-theme-opt" data-theme="dark" id="opt-dark">
@@ -407,16 +473,17 @@ function loadPrefs(){ try{ return JSON.parse(localStorage.getItem(PREF_KEY))||{}
 function savePrefs(){ localStorage.setItem(PREF_KEY, JSON.stringify({lang,theme})) }
 const prefs = loadPrefs();
 let lang  = prefs.lang  || 'pt';
-let theme = prefs.theme || 'hellokitty';
+let theme = prefs.theme || 'light';
 
 /* ===== THEME / LANG ===== */
 function applyTheme(){
   const root = document.documentElement;
   // remover todas as classes de tema
-  root.classList.remove('dark','tvgirl');
+  root.classList.remove('dark','tvgirl','hellokitty-theme');
 
-  if(theme==='dark')       root.classList.add('dark');
-  else if(theme==='tvgirl') root.classList.add('tvgirl');
+  if(theme==='dark')            root.classList.add('dark');
+  else if(theme==='tvgirl')     root.classList.add('tvgirl');
+  else if(theme==='hellokitty') root.classList.add('hellokitty-theme');
 
   // HK background pattern
   const bg = document.getElementById('hkBg');
@@ -429,13 +496,7 @@ function applyTheme(){
     }
   }
 
-  // HK images: só no tema hellokitty
-  document.querySelectorAll('.hk-img-light').forEach(el=>{
-    el.style.display = (theme==='hellokitty') ? 'inline-block' : 'none';
-  });
-  document.querySelectorAll('.hk-img-dark').forEach(el=>{
-    el.style.display = 'none';
-  });
+  // HK images controlled by CSS classes
 }
 function applyLang(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{
