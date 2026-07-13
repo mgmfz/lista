@@ -465,7 +465,6 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24p
     <div class="modal-title">🔒 Acesso privado</div>
     <label class="modal-label">Senha</label>
     <input class="modal-input" type="password" id="secretPassInput" placeholder="••••••••" autocomplete="off"/>
-    <div id="secretLoginError" style="display:none;color:var(--red);font-family:var(--font-mono);font-size:10px;margin:-10px 0 12px;">senha incorreta</div>
     <div class="modal-btns">
       <button class="modal-btn modal-btn-cancel" id="secretLoginCancel">Cancelar</button>
       <button class="modal-btn modal-btn-ok" id="secretLoginOk">Entrar</button>
@@ -802,7 +801,8 @@ document.getElementById('modalOk').addEventListener('click',()=>{
 /* ===== ESPAÇO SECRETO ===== */
 const SECRET_PASSWORD = '09062026';
 let secretItems = [];
-let secretListenerAttached = false;
+let secretPath = 'secret';   // 'secret' = cofre real · 'secret_decoy' = cofre falso (senha errada)
+let secretUnsub = null;      // função para cancelar o listener anterior ao trocar de cofre
 
 let hkClickCount = 0, hkClickTimer = null;
 document.querySelector('.tb-hk').addEventListener('click', () => {
@@ -812,7 +812,6 @@ document.querySelector('.tb-hk').addEventListener('click', () => {
   if (hkClickCount === 3) {
     hkClickCount = 0;
     document.getElementById('secretPassInput').value = '';
-    document.getElementById('secretLoginError').style.display = 'none';
     document.getElementById('secretLoginOverlay').classList.remove('hidden');
     document.getElementById('secretPassInput').focus();
   }
@@ -820,12 +819,9 @@ document.querySelector('.tb-hk').addEventListener('click', () => {
 
 function trySecretLogin(){
   const val = document.getElementById('secretPassInput').value;
-  if (val === SECRET_PASSWORD) {
-    document.getElementById('secretLoginOverlay').classList.add('hidden');
-    unlockSecret();
-  } else {
-    document.getElementById('secretLoginError').style.display = 'block';
-  }
+  document.getElementById('secretLoginOverlay').classList.add('hidden');
+  // Senha certa -> cofre real. Qualquer outra coisa -> cofre falso, sem aviso de erro.
+  openVault(val === SECRET_PASSWORD ? 'secret' : 'secret_decoy');
 }
 document.getElementById('secretLoginOk').addEventListener('click', trySecretLogin);
 document.getElementById('secretPassInput').addEventListener('keydown', e => { if (e.key === 'Enter') trySecretLogin(); });
@@ -833,23 +829,21 @@ document.getElementById('secretLoginCancel').addEventListener('click', () => {
   document.getElementById('secretLoginOverlay').classList.add('hidden');
 });
 
-function unlockSecret(){
-  if (!secretListenerAttached) {
-    secretListenerAttached = true;
-    onValue(ref(db, 'secret'), snap => {
-      const val = snap.val();
-      secretItems = (val && Array.isArray(val.items)) ? val.items : [];
-      renderSecretVault();
-    });
-  }
+function openVault(path){
+  secretPath = path;
+  if (secretUnsub) { secretUnsub(); secretUnsub = null; }
+  secretUnsub = onValue(ref(db, secretPath), snap => {
+    const val = snap.val();
+    secretItems = (val && Array.isArray(val.items)) ? val.items : [];
+    renderSecretVault();
+  });
   document.getElementById('secretVaultOverlay').classList.remove('hidden');
-  renderSecretVault();
 }
 document.getElementById('secretVaultClose').addEventListener('click', () => {
   document.getElementById('secretVaultOverlay').classList.add('hidden');
 });
 
-function saveSecretToFB(){ set(ref(db, 'secret'), { items: secretItems }); }
+function saveSecretToFB(){ set(ref(db, secretPath), { items: secretItems }); }
 
 function renderSecretVault(){
   const list = document.getElementById('secretItemsList');
