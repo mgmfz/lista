@@ -326,6 +326,11 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24p
 .secret-msg-p{align-self:flex-end;align-items:flex-end;}
 .secret-msg-neutral{align-self:center;align-items:center;max-width:85%;}
 .secret-msg-neutral .secret-bubble{background:transparent;border:1px dashed var(--border2);color:var(--ink3);font-style:italic;}
+.secret-tag-btn{
+  background:none;border:none;color:var(--accent2);cursor:pointer;
+  font-family:var(--font-mono);font-size:9px;text-decoration:underline;
+  padding:0;letter-spacing:0.3px;
+}
 .secret-bubble{
   border-radius:16px;padding:9px 13px;font-size:13.5px;line-height:1.4;
   word-break:break-word;
@@ -887,7 +892,7 @@ function renderSecretVault(){
     const side  = hasAuthor ? (it.author === 'P' ? 'secret-msg-p' : 'secret-msg-m') : 'secret-msg-neutral';
     const who   = hasAuthor ? (it.author === 'P' ? 'Pietra' : 'Miguel') : null;
     const time  = formatSecretTime(it.ts, hasAuthor ? it.author : 'M');
-    const label = who ? `${who} · ${time}` : (time || 'antes de identificar quem mandou');
+    const label = who ? `${who} · ${time}` : `${time ? time+' · ' : ''}<button class="secret-tag-btn" data-secret-tag="${idx}">definir quem mandou</button>`;
 
     if (it.type === 'file') {
       const isImg = it.data && it.data.startsWith('data:image/');
@@ -929,6 +934,19 @@ function renderSecretVault(){
       const artigo = kind === 'foto' ? 'esta' : 'este';
       if (!confirm(`Remover ${artigo} ${kind}? Essa ação não pode ser desfeita.`)) return;
       secretItems.splice(idx, 1);
+      saveSecretToFB();
+    });
+  });
+
+  list.querySelectorAll('[data-secret-tag]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.secretTag);
+      if (confirm('Foi o Miguel quem mandou?\n\nOK = Miguel · Cancelar = Pietra')) {
+        secretItems[idx].author = 'M';
+      } else {
+        secretItems[idx].author = 'P';
+      }
       saveSecretToFB();
     });
   });
