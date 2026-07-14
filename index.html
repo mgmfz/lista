@@ -324,6 +324,8 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24p
 .secret-msg{display:flex;flex-direction:column;max-width:78%;gap:4px;animation:fadeUp 0.2s ease forwards;}
 .secret-msg-m{align-self:flex-start;align-items:flex-start;}
 .secret-msg-p{align-self:flex-end;align-items:flex-end;}
+.secret-msg-neutral{align-self:center;align-items:center;max-width:85%;}
+.secret-msg-neutral .secret-bubble{background:transparent;border:1px dashed var(--border2);color:var(--ink3);font-style:italic;}
 .secret-bubble{
   border-radius:16px;padding:9px 13px;font-size:13.5px;line-height:1.4;
   word-break:break-word;
@@ -881,10 +883,11 @@ function renderSecretVault(){
     return;
   }
   list.innerHTML = secretItems.map((it, idx) => {
-    const author = it.author === 'P' ? 'P' : 'M';
-    const side   = author === 'P' ? 'secret-msg-p' : 'secret-msg-m';
-    const who    = author === 'P' ? 'Pietra' : 'Miguel';
-    const time   = formatSecretTime(it.ts, author);
+    const hasAuthor = it.author === 'M' || it.author === 'P';
+    const side  = hasAuthor ? (it.author === 'P' ? 'secret-msg-p' : 'secret-msg-m') : 'secret-msg-neutral';
+    const who   = hasAuthor ? (it.author === 'P' ? 'Pietra' : 'Miguel') : null;
+    const time  = formatSecretTime(it.ts, hasAuthor ? it.author : 'M');
+    const label = who ? `${who} · ${time}` : (time || 'antes de identificar quem mandou');
 
     if (it.type === 'file') {
       const isImg = it.data && it.data.startsWith('data:image/');
@@ -894,7 +897,7 @@ function renderSecretVault(){
             <img src="${it.data}" alt="${esc(it.name)}" loading="lazy" />
           </div>
           <div class="secret-meta-row">
-            <span>${who} · ${time}</span>
+            <span>${label}</span>
             <button class="secret-del-mini" data-secret-del="${idx}" data-secret-kind="foto">×</button>
           </div>
         </div>`;
@@ -905,7 +908,7 @@ function renderSecretVault(){
           <a href="${it.data}" download="${esc(it.name)}" style="text-decoration:underline;">baixar</a>
         </div>
         <div class="secret-meta-row">
-          <span>${who} · ${time}</span>
+          <span>${label}</span>
           <button class="secret-del-mini" data-secret-del="${idx}" data-secret-kind="arquivo">×</button>
         </div>
       </div>`;
@@ -913,7 +916,7 @@ function renderSecretVault(){
     return `<div class="secret-msg ${side}">
       <div class="secret-bubble">${esc(it.text)}</div>
       <div class="secret-meta-row">
-        <span>${who} · ${time}</span>
+        <span>${label}</span>
         <button class="secret-del-mini" data-secret-del="${idx}" data-secret-kind="mensagem">×</button>
       </div>
     </div>`;
