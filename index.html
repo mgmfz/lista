@@ -575,7 +575,7 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24p
 
 <script type="module">
 import { initializeApp }                           from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, onValue }          from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, onValue, push, remove, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
@@ -881,11 +881,14 @@ document.getElementById('modalOk').addEventListener('click',()=>{
 
 /* ===== ESPAÇO SECRETO ===== */
 const SECRET_PASSWORD = '09062026';
-let secretItems = [];
+let secretItems = [];         // array de {key, ...item}, key = id único do Firebase
 let secretPath = 'secret';   // 'secret' = cofre real · 'secret_decoy' = cofre falso (senha errada)
 let secretUnsub = null;      // função para cancelar o listener anterior ao trocar de cofre
 let secretAuthor = 'M';
-let secretReady = false;     // true só depois que o Firebase mandou os dados reais (evita sobrescrever com array vazio)
+let secretReady = false;     // true só depois que o Firebase mandou os dados reais
+let secretPending = 0;       // quantos envios (foto/vídeo/arquivo/nota) ainda estão em andamento
+
+function itemsRef(){ return ref(db, `${secretPath}/items`); }
 
 let hkClickCount = 0, hkClickTimer = null;
 document.querySelector('.tb-hk').addEventListener('click', () => {
@@ -916,9 +919,14 @@ function openVault(path){
   secretPath = path;
   secretReady = false;
   if (secretUnsub) { secretUnsub(); secretUnsub = null; }
-  secretUnsub = onValue(ref(db, secretPath), snap => {
+  secretUnsub = onValue(itemsRef(), snap => {
     const val = snap.val();
-    secretItems = (val && Array.isArray(val.items)) ? val.items : [];
+    secretItems = val
+      ? Object.entries(val)
+          .filter(([k, v]) => v && typeof v === 'object')
+          .map(([key, v]) => ({ key, ...v }))
+          .sort((a, b) => (a.ts||0) - (b.ts||0))
+      : [];
     secretReady = true;
     renderSecretVault();
   }, err => {
@@ -927,6 +935,7 @@ function openVault(path){
   document.getElementById('secretVaultOverlay').classList.remove('hidden');
 }
 document.getElementById('secretVaultClose').addEventListener('click', () => {
+  if (secretPending > 0 && !confirm('Ainda tem envio em andamento. Fechar mesmo assim?')) return;
   lockVault();
 });
 
@@ -942,6 +951,14 @@ function lockVault(){
 document.addEventListener('visibilitychange', () => { if (document.hidden) lockVault(); });
 window.addEventListener('pagehide', lockVault);
 
+// Avisa antes de fechar a aba/recarregar se ainda tiver algo sendo enviado
+window.addEventListener('beforeunload', e => {
+  if (secretPending > 0 || mailboxPending > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
 document.getElementById('secretBm').addEventListener('click', () => setSecretAuthor('M'));
 document.getElementById('secretBp').addEventListener('click', () => setSecretAuthor('P'));
 function setSecretAuthor(w){
@@ -950,9 +967,24 @@ function setSecretAuthor(w){
   document.getElementById('secretBp').className = 'who-btn'+(w==='P'?' sel-p':'');
 }
 
-function saveSecretToFB(){
-  return set(ref(db, secretPath), { items: secretItems }).catch(err=>{
-    alert('Não consegui salvar no cofre. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
+// Adiciona um item novo (push = chave própria, nunca sobrescreve os outros itens)
+function addSecretItem(itemData){
+  secretPending++;
+  return push(itemsRef(), itemData)
+    .catch(err => {
+      alert('Não consegui salvar no cofre. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
+      throw err;
+    })
+    .finally(() => { secretPending--; });
+}
+function deleteSecretItem(key){
+  return remove(ref(db, `${secretPath}/items/${key}`)).catch(err=>{
+    alert('Não consegui remover. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
+  });
+}
+function updateSecretItem(key, patch){
+  return update(ref(db, `${secretPath}/items/${key}`), patch).catch(err=>{
+    alert('Não consegui atualizar. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
   });
 }
 
@@ -971,12 +1003,13 @@ function renderSecretVault(){
     list.innerHTML = `<div class="empty">nada por aqui ainda… manda uma mensagem</div>`;
     return;
   }
-  list.innerHTML = secretItems.map((it, idx) => {
+  list.innerHTML = secretItems.map((it) => {
+    const key = it.key;
     const hasAuthor = it.author === 'M' || it.author === 'P';
     const side  = hasAuthor ? (it.author === 'P' ? 'secret-msg-p' : 'secret-msg-m') : 'secret-msg-neutral';
     const who   = hasAuthor ? (it.author === 'P' ? 'Pietra' : 'Miguel') : null;
     const time  = formatSecretTime(it.ts, hasAuthor ? it.author : 'M');
-    const label = who ? `${who} · ${time}` : `${time ? time+' · ' : ''}<button class="secret-tag-btn" data-secret-tag="${idx}">definir quem mandou</button>`;
+    const label = who ? `${who} · ${time}` : `${time ? time+' · ' : ''}<button class="secret-tag-btn" data-secret-tag="${key}">definir quem mandou</button>`;
 
     if (it.type === 'video') {
       return `<div class="secret-msg ${side}">
@@ -985,7 +1018,7 @@ function renderSecretVault(){
         </div>
         <div class="secret-meta-row">
           <span>${label}</span>
-          <button class="secret-del-mini" data-secret-del="${idx}" data-secret-kind="vídeo">×</button>
+          <button class="secret-del-mini" data-secret-del="${key}" data-secret-kind="vídeo">×</button>
         </div>
       </div>`;
     }
@@ -993,12 +1026,12 @@ function renderSecretVault(){
       const isImg = it.data && it.data.startsWith('data:image/');
       if (isImg) {
         return `<div class="secret-msg ${side}">
-          <div class="secret-bubble secret-photo-bubble" data-lightbox="${idx}">
+          <div class="secret-bubble secret-photo-bubble" data-lightbox="${key}">
             <img src="${it.data}" alt="${esc(it.name)}" loading="lazy" />
           </div>
           <div class="secret-meta-row">
             <span>${label}</span>
-            <button class="secret-del-mini" data-secret-del="${idx}" data-secret-kind="foto">×</button>
+            <button class="secret-del-mini" data-secret-del="${key}" data-secret-kind="foto">×</button>
           </div>
         </div>`;
       }
@@ -1009,7 +1042,7 @@ function renderSecretVault(){
         </div>
         <div class="secret-meta-row">
           <span>${label}</span>
-          <button class="secret-del-mini" data-secret-del="${idx}" data-secret-kind="arquivo">×</button>
+          <button class="secret-del-mini" data-secret-del="${key}" data-secret-kind="arquivo">×</button>
         </div>
       </div>`;
     }
@@ -1017,43 +1050,38 @@ function renderSecretVault(){
       <div class="secret-bubble">${esc(it.text)}</div>
       <div class="secret-meta-row">
         <span>${label}</span>
-        <button class="secret-del-mini" data-secret-del="${idx}" data-secret-kind="mensagem">×</button>
+        <button class="secret-del-mini" data-secret-del="${key}" data-secret-kind="mensagem">×</button>
       </div>
     </div>`;
   }).join('');
 
   list.querySelectorAll('[data-secret-del]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.secretDel);
+      const key = btn.dataset.secretDel;
       const kind = btn.dataset.secretKind || 'item';
       const artigo = kind === 'foto' || kind === 'vídeo' ? 'esta' : 'este';
       if (!confirm(`Remover ${artigo} ${kind}? Essa ação não pode ser desfeita.`)) return;
-      const it = secretItems[idx];
+      const it = secretItems.find(x => x.key === key);
       if (it && it.type === 'video' && it.url) {
         deleteObject(storageRef(storage, it.url)).catch(() => {});
       }
-      secretItems.splice(idx, 1);
-      saveSecretToFB();
+      deleteSecretItem(key);
     });
   });
 
   list.querySelectorAll('[data-secret-tag]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      const idx = parseInt(btn.dataset.secretTag);
-      if (confirm('Foi o Miguel quem mandou?\n\nOK = Miguel · Cancelar = Pietra')) {
-        secretItems[idx].author = 'M';
-      } else {
-        secretItems[idx].author = 'P';
-      }
-      saveSecretToFB();
+      const key = btn.dataset.secretTag;
+      const author = confirm('Foi o Miguel quem mandou?\n\nOK = Miguel · Cancelar = Pietra') ? 'M' : 'P';
+      updateSecretItem(key, { author });
     });
   });
 
   list.querySelectorAll('[data-lightbox]').forEach(bubble => {
     bubble.addEventListener('click', () => {
-      const idx = parseInt(bubble.dataset.lightbox);
-      const it = secretItems[idx];
+      const key = bubble.dataset.lightbox;
+      const it = secretItems.find(x => x.key === key);
       if (!it) return;
       openLightbox(it.data, it.name);
     });
@@ -1088,9 +1116,8 @@ document.getElementById('secretAddNoteBtn').addEventListener('click', () => {
   const inp = document.getElementById('secretNoteInput');
   const text = inp.value.trim();
   if (!text) return;
-  secretItems.push({ type: 'note', text, author: secretAuthor, ts: Date.now() });
-  saveSecretToFB();
   inp.value = '';
+  addSecretItem({ type: 'note', text, author: secretAuthor, ts: Date.now() });
 });
 document.getElementById('secretNoteInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('secretAddNoteBtn').click();
@@ -1111,19 +1138,14 @@ document.getElementById('secretFileInput').addEventListener('change', e => {
       alert('Arquivo muito grande (máx ~2.2MB).');
       return;
     }
-    const placeholder = { type: 'note', text: `⏳ enviando "${file.name}"…`, author: secretAuthor, ts: Date.now() };
-    secretItems.push(placeholder);
-    renderSecretVault();
+    secretPending++;
     const reader = new FileReader();
     reader.onload = () => {
-      const i = secretItems.indexOf(placeholder);
-      if (i !== -1) secretItems.splice(i, 1);
+      secretPending--;
       saveSecretFile(file.name, reader.result);
     };
     reader.onerror = () => {
-      const i = secretItems.indexOf(placeholder);
-      if (i !== -1) secretItems.splice(i, 1);
-      renderSecretVault();
+      secretPending--;
       alert('Não consegui ler esse arquivo. Tenta de novo.');
     };
     reader.readAsDataURL(file);
@@ -1131,12 +1153,9 @@ document.getElementById('secretFileInput').addEventListener('change', e => {
 });
 
 function uploadSecretPhoto(file){
-  const placeholder = { type: 'note', text: `⏳ enviando foto…`, author: secretAuthor, ts: Date.now() };
-  secretItems.push(placeholder);
-  renderSecretVault();
+  secretPending++;
   compressImage(file, dataUrl => {
-    const i = secretItems.indexOf(placeholder);
-    if (i !== -1) secretItems.splice(i, 1);
+    secretPending--;
     saveSecretFile(file.name, dataUrl);
   });
 }
@@ -1148,28 +1167,19 @@ function uploadSecretVideo(file){
     alert('Vídeo muito grande (máx ~200MB).');
     return;
   }
-  // mensagem provisória só na tela, pra dar feedback enquanto sobe
-  const placeholder = { type: 'note', text: `⏳ enviando "${file.name}"…`, author: secretAuthor, ts: Date.now() };
-  secretItems.push(placeholder);
-  renderSecretVault();
-
+  secretPending++;
   const path = `${secretPath}/videos/${Date.now()}_${file.name}`;
   const sRef = storageRef(storage, path);
 
   uploadBytes(sRef, file)
     .then(snap => getDownloadURL(snap.ref))
     .then(url => {
-      const i = secretItems.indexOf(placeholder);
-      if (i !== -1) secretItems.splice(i, 1);
-      secretItems.push({ type: 'video', name: file.name, url, size: file.size, author: secretAuthor, ts: Date.now() });
-      saveSecretToFB();
+      return addSecretItem({ type: 'video', name: file.name, url, size: file.size, author: secretAuthor, ts: Date.now() });
     })
     .catch(err => {
-      const i = secretItems.indexOf(placeholder);
-      if (i !== -1) secretItems.splice(i, 1);
-      renderSecretVault();
       alert('Não consegui enviar o vídeo. Verifique se o Firebase Storage está ativado no console do projeto.\n\n' + (err && err.message ? err.message : err));
-    });
+    })
+    .finally(() => { secretPending--; });
 }
 
 function compressImage(file, callback, quality = 0.85, maxDim = 2000){
@@ -1198,42 +1208,40 @@ function compressImage(file, callback, quality = 0.85, maxDim = 2000){
       callback(dataUrl);
     }
   };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    alert('Não consegui abrir essa imagem. Tenta outra foto.');
+  };
   img.src = url;
 }
 
 function saveSecretFile(name, dataUrl){
   const approxBytes = Math.round(dataUrl.length * 0.75);
-  secretItems.push({ type: 'file', name, size: approxBytes, data: dataUrl, author: secretAuthor, ts: Date.now() });
-  saveSecretToFB();
+  addSecretItem({ type: 'file', name, size: approxBytes, data: dataUrl, author: secretAuthor, ts: Date.now() });
 }
 
 /* ===== CAIXINHA DE RECADINHOS (provisória, 24h) ===== */
 const MAILBOX_TTL = 24 * 60 * 60 * 1000; // 24 horas
-let mailboxItems = [];
+let mailboxItems = [];        // array de {key, ...item}
 let mailboxAuthor = 'M';
 let mailboxReady = false;
-
-function pruneMailbox(items){
-  const cutoff = Date.now() - MAILBOX_TTL;
-  return items.filter(it => it.ts && it.ts > cutoff);
-}
-
-function saveMailboxToFB(){
-  return set(ref(db, 'mailbox'), { items: mailboxItems }).catch(err=>{
-    alert('Não consegui salvar o recadinho. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
-  });
-}
+let mailboxPending = 0;
 
 onValue(ref(db, 'mailbox'), snap => {
   const val = snap.val();
-  const raw = (val && Array.isArray(val.items)) ? val.items : [];
-  const pruned = pruneMailbox(raw);
-  mailboxItems = pruned;
+  const cutoff = Date.now() - MAILBOX_TTL;
+  const all = val
+    ? Object.entries(val)
+        .filter(([k, v]) => v && typeof v === 'object' && typeof v.ts === 'number') // ignora formato antigo/inesperado
+        .map(([key, v]) => ({ key, ...v }))
+    : [];
+  // remove individualmente (sem sobrescrever o resto) quem já passou de 24h
+  all.filter(it => !(it.ts > cutoff))
+     .forEach(it => remove(ref(db, `mailbox/${it.key}`)).catch(()=>{}));
+
+  mailboxItems = all.filter(it => it.ts > cutoff)
+                     .sort((a,b) => (a.ts||0) - (b.ts||0));
   mailboxReady = true;
-  if (pruned.length !== raw.length) {
-    // alguns recadinhos passaram de 24h -> limpa também no banco
-    saveMailboxToFB();
-  }
   updateMailboxBadge();
   if (!document.getElementById('mailboxOverlay').classList.contains('hidden')) {
     renderMailbox();
@@ -1272,7 +1280,7 @@ function renderMailbox(){
     list.innerHTML = `<div class="empty">nenhum recadinho por aqui…</div>`;
     return;
   }
-  list.innerHTML = mailboxItems.map((it, idx) => {
+  list.innerHTML = mailboxItems.map((it) => {
     const side = it.author === 'P' ? 'secret-msg-p' : 'secret-msg-m';
     const who  = it.author === 'P' ? 'Pietra' : 'Miguel';
     const time = formatSecretTime(it.ts, it.author || 'M');
@@ -1280,7 +1288,7 @@ function renderMailbox(){
       <div class="secret-bubble">${esc(it.text)}</div>
       <div class="secret-meta-row">
         <span>${who} · ${time}</span>
-        <button class="secret-del-mini" data-mailbox-del="${idx}">×</button>
+        <button class="secret-del-mini" data-mailbox-del="${it.key}">×</button>
       </div>
     </div>`;
   }).join('');
@@ -1288,8 +1296,9 @@ function renderMailbox(){
   list.querySelectorAll('[data-mailbox-del]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!confirm('Remover este recadinho? Essa ação não pode ser desfeita.')) return;
-      mailboxItems.splice(parseInt(btn.dataset.mailboxDel), 1);
-      saveMailboxToFB();
+      remove(ref(db, `mailbox/${btn.dataset.mailboxDel}`)).catch(err=>{
+        alert('Não consegui remover. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
+      });
     });
   });
 
@@ -1301,9 +1310,13 @@ document.getElementById('mailboxAddBtn').addEventListener('click', () => {
   const inp = document.getElementById('mailboxNoteInput');
   const text = inp.value.trim();
   if (!text) return;
-  mailboxItems.push({ text, author: mailboxAuthor, ts: Date.now() });
-  saveMailboxToFB();
   inp.value = '';
+  mailboxPending++;
+  push(ref(db, 'mailbox'), { text, author: mailboxAuthor, ts: Date.now() })
+    .catch(err=>{
+      alert('Não consegui salvar o recadinho. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
+    })
+    .finally(()=>{ mailboxPending--; });
 });
 document.getElementById('mailboxNoteInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('mailboxAddBtn').click();
