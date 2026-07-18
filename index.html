@@ -575,7 +575,7 @@ main{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 24p
 
 <script type="module">
 import { initializeApp }                           from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, onValue, push, remove, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
@@ -881,14 +881,14 @@ document.getElementById('modalOk').addEventListener('click',()=>{
 
 /* ===== ESPAÇO SECRETO ===== */
 const SECRET_PASSWORD = '09062026';
-let secretItems = [];         // array de {key, ...item}, key = id único do Firebase
+let secretItems = [];         // array de itens (cada um com um `uid` próprio, gerado ao criar)
 let secretPath = 'secret';   // 'secret' = cofre real · 'secret_decoy' = cofre falso (senha errada)
 let secretUnsub = null;      // função para cancelar o listener anterior ao trocar de cofre
 let secretAuthor = 'M';
 let secretReady = false;     // true só depois que o Firebase mandou os dados reais
 let secretPending = 0;       // quantos envios (foto/vídeo/arquivo/nota) ainda estão em andamento
 
-function itemsRef(){ return ref(db, `${secretPath}/items`); }
+function makeUid(){ return `${Date.now()}_${Math.random().toString(36).slice(2,9)}`; }
 
 let hkClickCount = 0, hkClickTimer = null;
 document.querySelector('.tb-hk').addEventListener('click', () => {
@@ -918,18 +918,24 @@ document.getElementById('secretLoginCancel').addEventListener('click', () => {
 function openVault(path){
   secretPath = path;
   secretReady = false;
+  document.getElementById('secretItemsList').innerHTML = `<div class="empty">carregando…</div>`;
   if (secretUnsub) { secretUnsub(); secretUnsub = null; }
-  secretUnsub = onValue(itemsRef(), snap => {
+  secretUnsub = onValue(ref(db, secretPath), snap => {
     const val = snap.val();
-    secretItems = val
-      ? Object.entries(val)
-          .filter(([k, v]) => v && typeof v === 'object')
-          .map(([key, v]) => ({ key, ...v }))
-          .sort((a, b) => (a.ts||0) - (b.ts||0))
-      : [];
+    const items = (val && Array.isArray(val.items)) ? val.items : [];
+    // migração silenciosa: dá um `uid` estável pra qualquer item antigo que ainda não tenha
+    if (items.some(it => it && !it.uid)) {
+      runTransaction(ref(db, secretPath), current => {
+        const cur = (current && Array.isArray(current.items)) ? current.items.slice() : [];
+        cur.forEach(it => { if (it && !it.uid) it.uid = makeUid(); });
+        return { items: cur };
+      }).catch(()=>{});
+    }
+    secretItems = items;
     secretReady = true;
     renderSecretVault();
   }, err => {
+    document.getElementById('secretItemsList').innerHTML = `<div class="empty">não consegui carregar — confere sua internet</div>`;
     alert('Não consegui abrir o cofre. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
   });
   document.getElementById('secretVaultOverlay').classList.remove('hidden');
@@ -967,25 +973,29 @@ function setSecretAuthor(w){
   document.getElementById('secretBp').className = 'who-btn'+(w==='P'?' sel-p':'');
 }
 
-// Adiciona um item novo (push = chave própria, nunca sobrescreve os outros itens)
-function addSecretItem(itemData){
+// Transação atômica: sempre lê o valor MAIS RECENTE do servidor antes de gravar,
+// então duas pessoas mandando algo ao mesmo tempo nunca mais se sobrescrevem.
+function secretTransaction(mutateFn){
   secretPending++;
-  return push(itemsRef(), itemData)
-    .catch(err => {
-      alert('Não consegui salvar no cofre. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
-      throw err;
-    })
-    .finally(() => { secretPending--; });
+  return runTransaction(ref(db, secretPath), current => {
+    const items = (current && Array.isArray(current.items)) ? current.items.slice() : [];
+    const result = mutateFn(items);
+    return { items: result || items };
+  }).catch(err=>{
+    alert('Não consegui salvar no cofre. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
+    throw err;
+  }).finally(() => { secretPending--; });
 }
-function deleteSecretItem(key){
-  return remove(ref(db, `${secretPath}/items/${key}`)).catch(err=>{
-    alert('Não consegui remover. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
-  });
+
+function addSecretItem(itemData){
+  itemData.uid = makeUid();
+  return secretTransaction(items => { items.push(itemData); return items; });
 }
-function updateSecretItem(key, patch){
-  return update(ref(db, `${secretPath}/items/${key}`), patch).catch(err=>{
-    alert('Não consegui atualizar. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
-  });
+function deleteSecretItem(uid){
+  return secretTransaction(items => items.filter(it => it.uid !== uid));
+}
+function updateSecretItem(uid, patch){
+  return secretTransaction(items => items.map(it => it.uid === uid ? { ...it, ...patch } : it));
 }
 
 function formatSecretTime(ts, author){
@@ -1003,8 +1013,8 @@ function renderSecretVault(){
     list.innerHTML = `<div class="empty">nada por aqui ainda… manda uma mensagem</div>`;
     return;
   }
-  list.innerHTML = secretItems.map((it) => {
-    const key = it.key;
+  list.innerHTML = secretItems.map((it, idx) => {
+    const key = it.uid || `idx${idx}`; // fallback só por segurança, todo item novo já ganha uid
     const hasAuthor = it.author === 'M' || it.author === 'P';
     const side  = hasAuthor ? (it.author === 'P' ? 'secret-msg-p' : 'secret-msg-m') : 'secret-msg-neutral';
     const who   = hasAuthor ? (it.author === 'P' ? 'Pietra' : 'Miguel') : null;
@@ -1061,7 +1071,7 @@ function renderSecretVault(){
       const kind = btn.dataset.secretKind || 'item';
       const artigo = kind === 'foto' || kind === 'vídeo' ? 'esta' : 'este';
       if (!confirm(`Remover ${artigo} ${kind}? Essa ação não pode ser desfeita.`)) return;
-      const it = secretItems.find(x => x.key === key);
+      const it = secretItems.find(x => (x.uid || '') === key);
       if (it && it.type === 'video' && it.url) {
         deleteObject(storageRef(storage, it.url)).catch(() => {});
       }
@@ -1081,7 +1091,7 @@ function renderSecretVault(){
   list.querySelectorAll('[data-lightbox]').forEach(bubble => {
     bubble.addEventListener('click', () => {
       const key = bubble.dataset.lightbox;
-      const it = secretItems.find(x => x.key === key);
+      const it = secretItems.find(x => (x.uid || '') === key);
       if (!it) return;
       openLightbox(it.data, it.name);
     });
@@ -1222,26 +1232,36 @@ function saveSecretFile(name, dataUrl){
 
 /* ===== CAIXINHA DE RECADINHOS (provisória, 24h) ===== */
 const MAILBOX_TTL = 24 * 60 * 60 * 1000; // 24 horas
-let mailboxItems = [];        // array de {key, ...item}
+let mailboxItems = [];
 let mailboxAuthor = 'M';
 let mailboxReady = false;
 let mailboxPending = 0;
 
+function mailboxTransaction(mutateFn){
+  mailboxPending++;
+  return runTransaction(ref(db, 'mailbox'), current => {
+    const items = (current && Array.isArray(current.items)) ? current.items.slice() : [];
+    const result = mutateFn(items);
+    return { items: result || items };
+  }).catch(err=>{
+    alert('Não consegui salvar o recadinho. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
+    throw err;
+  }).finally(()=>{ mailboxPending--; });
+}
+
 onValue(ref(db, 'mailbox'), snap => {
   const val = snap.val();
+  const raw = (val && Array.isArray(val.items)) ? val.items : [];
   const cutoff = Date.now() - MAILBOX_TTL;
-  const all = val
-    ? Object.entries(val)
-        .filter(([k, v]) => v && typeof v === 'object' && typeof v.ts === 'number') // ignora formato antigo/inesperado
-        .map(([key, v]) => ({ key, ...v }))
-    : [];
-  // remove individualmente (sem sobrescrever o resto) quem já passou de 24h
-  all.filter(it => !(it.ts > cutoff))
-     .forEach(it => remove(ref(db, `mailbox/${it.key}`)).catch(()=>{}));
-
-  mailboxItems = all.filter(it => it.ts > cutoff)
-                     .sort((a,b) => (a.ts||0) - (b.ts||0));
+  const stillValid = raw.filter(it => it && it.ts && it.ts > cutoff);
+  mailboxItems = stillValid.map(it => it.uid ? it : { ...it, uid: makeUid() });
   mailboxReady = true;
+
+  if (stillValid.length !== raw.length) {
+    // alguns recadinhos passaram de 24h -> limpa via transação (sem sobrescrever escritas concorrentes)
+    mailboxTransaction(items => items.filter(it => it && it.ts && it.ts > cutoff)).catch(()=>{});
+  }
+
   updateMailboxBadge();
   if (!document.getElementById('mailboxOverlay').classList.contains('hidden')) {
     renderMailbox();
@@ -1280,7 +1300,8 @@ function renderMailbox(){
     list.innerHTML = `<div class="empty">nenhum recadinho por aqui…</div>`;
     return;
   }
-  list.innerHTML = mailboxItems.map((it) => {
+  list.innerHTML = mailboxItems.map((it, idx) => {
+    const key = it.uid || `idx${idx}`;
     const side = it.author === 'P' ? 'secret-msg-p' : 'secret-msg-m';
     const who  = it.author === 'P' ? 'Pietra' : 'Miguel';
     const time = formatSecretTime(it.ts, it.author || 'M');
@@ -1288,7 +1309,7 @@ function renderMailbox(){
       <div class="secret-bubble">${esc(it.text)}</div>
       <div class="secret-meta-row">
         <span>${who} · ${time}</span>
-        <button class="secret-del-mini" data-mailbox-del="${it.key}">×</button>
+        <button class="secret-del-mini" data-mailbox-del="${key}">×</button>
       </div>
     </div>`;
   }).join('');
@@ -1296,9 +1317,8 @@ function renderMailbox(){
   list.querySelectorAll('[data-mailbox-del]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!confirm('Remover este recadinho? Essa ação não pode ser desfeita.')) return;
-      remove(ref(db, `mailbox/${btn.dataset.mailboxDel}`)).catch(err=>{
-        alert('Não consegui remover. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
-      });
+      const key = btn.dataset.mailboxDel;
+      mailboxTransaction(items => items.filter(it => (it.uid || '') !== key)).catch(()=>{});
     });
   });
 
@@ -1311,12 +1331,8 @@ document.getElementById('mailboxAddBtn').addEventListener('click', () => {
   const text = inp.value.trim();
   if (!text) return;
   inp.value = '';
-  mailboxPending++;
-  push(ref(db, 'mailbox'), { text, author: mailboxAuthor, ts: Date.now() })
-    .catch(err=>{
-      alert('Não consegui salvar o recadinho. Confere sua internet e tenta de novo.\n\n'+(err&&err.message?err.message:err));
-    })
-    .finally(()=>{ mailboxPending--; });
+  const newItem = { text, author: mailboxAuthor, ts: Date.now(), uid: makeUid() };
+  mailboxTransaction(items => { items.push(newItem); return items; }).catch(()=>{});
 });
 document.getElementById('mailboxNoteInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('mailboxAddBtn').click();
